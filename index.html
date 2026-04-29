@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Magis Unified</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #050505;
+      color: #f3f4f6;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+    .glass-nav {
+      background: rgba(10, 10, 10, 0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .channel-card {
+      background: #111;
+      border: 1px solid #1a1a1a;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    
+    .channel-card:hover {
+      background: #151515;
+      border-color: #3b82f6;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      appearance: none;
+    }
+
+    .loader { border: 3px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    #castBtn.connected { color: #3b82f6; }
+    .source-badge { font-size: 0.55rem; padding: 0.1rem 0.3rem; border-radius: 4px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
+  </style>
+</head>
+<body class="flex flex-col h-screen">
+
+  <!-- Navegación -->
+  <nav class="glass-nav fixed top-0 w-full z-40 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="bg-blue-600 text-white p-1.5 rounded-lg">
+        <span class="material-symbols-outlined text-xl">tv_options_edit_channels</span>
+      </div>
+      <h1 class="text-lg font-bold tracking-tight hidden sm:block">Magis Unified</h1>
+    </div>
+    
+    <!-- Buscador Integrado -->
+    <div class="flex-1 max-w-xl mx-4 relative">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">search</span>
+      <input type="text" id="searchInput" placeholder="Buscar canales..." 
+             class="w-full bg-zinc-900 border border-zinc-800 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition-colors">
+    </div>
+
+    <div class="flex items-center gap-2">
+      <div class="hidden sm:flex items-center gap-2 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 text-xs">
+        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+        <span id="channelCount" class="text-gray-400 font-medium font-mono">0</span>
+      </div>
+      <button id="castBtn" class="text-gray-400 hover:text-white p-2">
+        <span class="material-symbols-outlined">cast</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Contenedor Principal -->
+  <main class="flex-1 overflow-y-auto pt-20 pb-10 px-4 sm:px-6 w-full max-w-screen-2xl mx-auto flex flex-col">
+    
+    <!-- Filtros -->
+    <div class="flex flex-wrap gap-2 mb-6 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
+      <select id="sourceFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
+        <option value="all">Todos los Proveedores</option>
+      </select>
+      <select id="countryFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
+        <option value="all">Todo el Mundo</option>
+      </select>
+      <select id="categoryFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
+        <option value="all">Todas las Categorías</option>
+      </select>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingState" class="flex flex-col items-center justify-center py-20 flex-1">
+      <div class="loader w-10 h-10 mb-4"></div>
+      <p id="loadingText" class="text-gray-400 font-medium animate-pulse text-sm">Descargando listas de canales...</p>
+    </div>
+
+    <!-- Grid -->
+    <div id="channelGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3"></div>
+
+    <!-- Empty -->
+    <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center flex-1">
+      <span class="material-symbols-outlined text-5xl text-gray-800 mb-3">tv_off</span>
+      <h3 class="text-lg font-bold text-gray-300">Sin resultados</h3>
+      <p class="text-gray-500 text-xs mt-1">Intenta limpiar los filtros.</p>
+    </div>
+  </main>
+
+  <!-- Player Modal -->
+  <div id="playerModal" class="fixed inset-0 z-[100] bg-black hidden opacity-0 transition-opacity duration-300 flex-col">
+    <div class="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/90 to-transparent z-10 flex justify-between items-start">
+      <div class="flex items-center gap-3">
+        <img id="playerLogo" src="" class="w-10 h-10 rounded bg-white/5 object-contain p-1 border border-white/10" onerror="this.style.display='none'">
+        <div>
+          <h2 id="playerTitle" class="text-lg font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-md">Cargando...</h2>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="playerStatus" class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">Init</span>
+            <span id="playerSource" class="text-[9px] text-gray-400 uppercase tracking-widest"></span>
+          </div>
+        </div>
+      </div>
+      <button onclick="closePlayer()" class="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors">
+        <span class="material-symbols-outlined text-2xl">close</span>
+      </button>
+    </div>
+
+    <div class="flex-1 w-full h-full flex items-center justify-center relative bg-black">
+      <video id="videoElement" class="w-full h-full" controls playsinline autoplay></video>
+      
+      <div id="videoError" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-6 text-center hidden z-20">
+        <span class="material-symbols-outlined text-4xl text-red-500 mb-3">broken_image</span>
+        <h3 class="text-lg font-bold text-white mb-1">Señal Caída o Protegida</h3>
+        <p class="text-gray-400 text-xs max-w-sm mb-6">El servidor original rechazó la conexión (DRM) o el link de la lista expiró.</p>
+        <button onclick="closePlayer()" class="bg-zinc-800 hover:bg-zinc-700 px-5 py-2 text-sm rounded-md transition-colors border border-zinc-700">Cerrar Canal</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * CONFIGURACIÓN CENTRAL
+     */
+    const PROXY_URL = 'https://tvip.papamasro.workers.dev/?url=';
+    
+    // TODAS LAS FUENTES PARA CARGAR AL INICIO
+    const SOURCES = [
+      { id: 'iptv-org', name: 'IPTV Global', type: 'json', streams: 'https://iptv-org.github.io/api/streams.json', meta: 'https://iptv-org.github.io/api/channels.json', color: 'bg-blue-900/50 text-blue-400' },
+      { id: 'espana', name: 'España Local', type: 'm3u', url: 'https://iptv-org.github.io/iptv/countries/es.m3u', color: 'bg-red-900/50 text-red-400' },
+      { id: 'pluto', name: 'Pluto TV', type: 'm3u', url: 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/pluto_tv.m3u', color: 'bg-yellow-900/50 text-yellow-400' },
+      { id: 'rtve-news', name: 'Noticias ES', type: 'm3u', url: 'https://iptv-org.github.io/iptv/categories/news.m3u', color: 'bg-orange-900/50 text-orange-400' }
+    ];
+
+    const state = {
+      allChannels: [],
+      filtered: [],
+      filters: { search: '', source: 'all', country: 'all', category: 'all' },
+      hlsPlayer: null,
+      castSession: null
+    };
+
+    const DOM = {
+      grid: document.getElementById('channelGrid'),
+      loading: document.getElementById('loadingState'),
+      loadingText: document.getElementById('loadingText'),
+      empty: document.getElementById('emptyState'),
+      count: document.getElementById('channelCount'),
+      selSource: document.getElementById('sourceFilter'),
+      selCountry: document.getElementById('countryFilter'),
+      selCategory: document.getElementById('categoryFilter'),
+      inpSearch: document.getElementById('searchInput'),
+      player: {
+        modal: document.getElementById('playerModal'),
+        video: document.getElementById('videoElement'),
+        title: document.getElementById('playerTitle'),
+        logo: document.getElementById('playerLogo'),
+        status: document.getElementById('playerStatus'),
+        source: document.getElementById('playerSource'),
+        error: document.getElementById('videoError')
+      }
+    };
+
+    async function init() {
+      setupEvents();
+      setupCast();
+      
+      let allLoadedChannels = [];
+
+      for (const source of SOURCES) {
+        DOM.loadingText.textContent = `Descargando ${source.name}...`;
+        try {
+          let channels = [];
+          if (source.type === 'json') channels = await fetchJSON(source);
+          else if (source.type === 'm3u') channels = await fetchM3U(source);
+          allLoadedChannels = allLoadedChannels.concat(channels);
+        } catch (e) {
+          console.error(`Error cargando ${source.name}:`, e);
+        }
+      }
+
+      // Remover duplicados exactos por URL
+      const uniqueUrls = new Set();
+      state.allChannels = allLoadedChannels.filter(c => {
+        if (uniqueUrls.has(c.url)) return false;
+        uniqueUrls.add(c.url);
+        return true;
+      });
+
+      populateSelects();
+      applyFilters();
+
+      DOM.loading.classList.add('hidden');
+      DOM.loading.classList.remove('flex');
+    }
+
+    function setupEvents() {
+      DOM.inpSearch.addEventListener('input', e => { state.filters.search = e.target.value.toLowerCase(); applyFilters(); });
+      DOM.selSource.addEventListener('change', e => { state.filters.source = e.target.value; applyFilters(); });
+      DOM.selCountry.addEventListener('change', e => { state.filters.country = e.target.value; applyFilters(); });
+      DOM.selCategory.addEventListener('change', e => { state.filters.category = e.target.value; applyFilters(); });
+    }
+
+    /**
+     * FETCHERS
+     */
+    async function fetchJSON(source) {
+      const [streams, metaData] = await Promise.all([
+        fetch(source.streams).then(r => r.json()),
+        fetch(source.meta).then(r => r.json())
+      ]);
+
+      const dict = {};
+      metaData.forEach(c => dict[c.id] = c);
+
+      return streams.filter(s => s.url).map(s => {
+        const m = dict[s.channel] || {};
+        
+        // Mejorar nombre si falta en metadata
+        let name = m.name || s.channel;
+        if (!name) {
+          // Extraer algo legible de la URL si todo falla
+          try {
+            const urlObj = new URL(s.url);
+            name = urlObj.pathname.split('/').pop().replace('.m3u8', '').replace(/[-_]/g, ' ') || urlObj.hostname;
+          } catch(e) { name = "Stream Desconocido"; }
+        }
+
+        return {
+          id: s.channel || btoa(s.url).substring(0,10),
+          name: name,
+          url: s.url,
+          logo: m.logo || '',
+          category: (m.categories && m.categories[0]) || 'General',
+          country: m.country || 'GLOBAL',
+          sourceId: source.id,
+          sourceName: source.name,
+          color: source.color
+        };
+      });
+    }
+
+    async function fetchM3U(source) {
+      try {
+        const res = await fetch(source.url.includes('github') ? source.url : PROXY_URL + encodeURIComponent(source.url));
+        const text = await res.text();
+        const lines = text.split('\n');
+        const results = [];
+        let current = {};
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.startsWith('#EXTINF:')) {
+            current = { logo: '', category: 'General', country: 'GLOBAL', sourceId: source.id, sourceName: source.name, color: source.color };
+            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+            if (logoMatch) current.logo = logoMatch[1];
+            const groupMatch = line.match(/group-title="([^"]+)"/);
+            if (groupMatch) current.category = groupMatch[1];
+            const splitComma = line.split(',');
+            if (splitComma.length > 1) current.name = splitComma[splitComma.length - 1].trim();
+            else current.name = "Canal M3U";
+          } else if (line && !line.startsWith('#')) {
+            current.url = line;
+            if(current.url.startsWith('http')) results.push({...current});
+            current = {};
+          }
+        }
+        return results;
+      } catch(e) {
+        console.warn("Fallo M3U:", source.name);
+        return [];
+      }
+    }
+
+    /**
+     * RENDER Y FILTROS
+     */
+    function populateSelects() {
+      const getUnique = key => [...new Set(state.allChannels.map(c => c[key]).filter(Boolean))].sort();
+      
+      SOURCES.forEach(s => DOM.selSource.add(new Option(s.name, s.id)));
+      
+      getUnique('country').forEach(c => DOM.selCountry.add(new Option(c.toUpperCase(), c)));
+      getUnique('category').forEach(c => DOM.selCategory.add(new Option(c, c)));
+    }
+
+    function applyFilters() {
+      const { search, source, country, category } = state.filters;
+      state.filtered = state.allChannels.filter(c => {
+        const str = (c.name + c.category).toLowerCase();
+        return (!search || str.includes(search)) &&
+               (source === 'all' || c.sourceId === source) &&
+               (country === 'all' || c.country === country) &&
+               (category === 'all' || c.category === category);
+      });
+      renderGrid();
+    }
+
+    function renderGrid() {
+      DOM.grid.innerHTML = '';
+      if(state.filtered.length === 0) {
+        DOM.empty.classList.remove('hidden');
+        DOM.empty.classList.add('flex');
+        DOM.count.textContent = '0';
+        return;
+      }
+      DOM.empty.classList.add('hidden');
+      DOM.empty.classList.remove('flex');
+      DOM.count.textContent = state.filtered.length;
+
+      const slice = state.filtered.slice(0, 150); // Límite virtual
+      
+      DOM.grid.innerHTML = slice.map((c, i) => {
+        const fallAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name.substring(0,2))}&background=111&color=555&size=64&bold=true`;
+        return `
+          <div class="channel-card rounded-xl overflow-hidden flex flex-col h-full" onclick="playStream(${i})">
+            <div class="aspect-video w-full bg-black p-3 flex items-center justify-center relative">
+              <img src="${c.logo || fallAvatar}" onerror="this.src='${fallAvatar}'" class="max-h-full max-w-full object-contain z-10" loading="lazy">
+              <span class="source-badge absolute top-2 left-2 ${c.color}">${c.sourceName}</span>
+            </div>
+            <div class="p-2 border-t border-zinc-800/50 flex flex-col justify-between flex-1">
+              <h3 class="text-[10px] font-bold text-gray-200 line-clamp-2 uppercase leading-tight mb-1" title="${c.name}">${c.name}</h3>
+              <div class="flex items-center justify-between mt-auto">
+                <span class="text-[8px] text-gray-500 font-mono">${c.country.substring(0,3).toUpperCase()}</span>
+                <span class="text-[8px] text-gray-600 truncate max-w-[60px]">${c.category}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**
+     * REPRODUCTOR
+     */
+    function playStream(index, forceProxy = false) {
+      const c = state.filtered[index];
+      if(!c) return;
+
+      const finalUrl = forceProxy ? PROXY_URL + encodeURIComponent(c.url) : c.url;
+
+      if(state.castSession) {
+        castMedia(finalUrl, c.name);
+        return;
+      }
+
+      DOM.player.modal.classList.remove('hidden');
+      DOM.player.modal.classList.add('flex');
+      setTimeout(() => DOM.player.modal.classList.remove('opacity-0'), 10);
+      
+      DOM.player.title.textContent = c.name;
+      DOM.player.source.textContent = c.sourceName;
+      DOM.player.logo.src = c.logo;
+      DOM.player.logo.style.display = c.logo ? 'block' : 'none';
+      DOM.player.error.classList.add('hidden');
+
+      DOM.player.status.textContent = forceProxy ? "PROXY (CORS)" : "DIRECTO";
+      DOM.player.status.className = forceProxy 
+        ? "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-orange-500/20 text-orange-400 border border-orange-500/30"
+        : "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+
+      if(state.hlsPlayer) state.hlsPlayer.destroy();
+
+      if(Hls.isSupported()) {
+        state.hlsPlayer = new Hls({
+          manifestLoadingMaxRetry: 1, 
+          levelLoadingMaxRetry: 1
+        });
+        state.hlsPlayer.loadSource(finalUrl);
+        state.hlsPlayer.attachMedia(DOM.player.video);
+        state.hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => DOM.player.video.play().catch(e=>console.warn("Autoplay bloqueado")));
+        
+        state.hlsPlayer.on(Hls.Events.ERROR, (e, data) => {
+          if(data.fatal) {
+            if(!forceProxy) {
+              console.log("Fallo directo. Intentando proxy...");
+              playStream(index, true); 
+            } else {
+              showPlayerError();
+            }
+          }
+        });
+      } else if(DOM.player.video.canPlayType('application/vnd.apple.mpegurl')) {
+        DOM.player.video.src = finalUrl;
+        DOM.player.video.play();
+      }
+    }
+
+    function showPlayerError() {
+      if(state.hlsPlayer) state.hlsPlayer.destroy();
+      DOM.player.error.classList.remove('hidden');
+    }
+
+    window.closePlayer = function() {
+      DOM.player.modal.classList.add('opacity-0');
+      setTimeout(() => {
+        DOM.player.modal.classList.add('hidden');
+        DOM.player.modal.classList.remove('flex');
+        DOM.player.video.pause();
+        DOM.player.video.src = "";
+        if(state.hlsPlayer) state.hlsPlayer.destroy();
+      }, 300);
+    }
+
+    /**
+     * CHROMECAST SENDER
+     */
+    function setupCast() {
+      if (!window.chrome || !chrome.cast || !chrome.cast.isAvailable) {
+        window['__onGCastApiAvailable'] = (isAvail) => { if(isAvail) initCast(); };
+      } else initCast();
+    }
+
+    function initCast() {
+      const sessionReq = new chrome.cast.SessionRequest(chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID);
+      const apiConfig = new chrome.cast.ApiConfig(sessionReq, 
+        (s) => { state.castSession = s; document.getElementById('castBtn').classList.add('connected'); },
+        (avail) => { document.getElementById('castBtn').style.display = avail === 'available' ? 'block' : 'none'; }
+      );
+      chrome.cast.initialize(apiConfig, () => {
+        document.getElementById('castBtn').addEventListener('click', toggleCast);
+      }, console.error);
+    }
+
+    function toggleCast() {
+      if(state.castSession) {
+        state.castSession.stop(() => {
+          state.castSession = null;
+          document.getElementById('castBtn').classList.remove('connected');
+        }, console.error);
+      } else {
+        chrome.cast.requestSession((s) => {
+          state.castSession = s;
+          document.getElementById('castBtn').classList.add('connected');
+        }, console.warn);
+      }
+    }
+
+    function castMedia(url, title) {
+      if(!state.castSession) return;
+      const mInfo = new chrome.cast.media.MediaInfo(url, 'application/x-mpegurl');
+      mInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+      mInfo.metadata.title = title;
+      const req = new chrome.cast.media.LoadRequest(mInfo);
+      state.castSession.loadMedia(req, null, console.error);
+    }
+
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  </script>
+</body>
+</html>

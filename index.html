@@ -59,6 +59,15 @@
         .toast { padding: 14px 20px; border-radius: 12px; font-weight: 500; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); animation: fadeIn 0.3s ease-out; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.1); }
         .toast.error { background: #27272a; color: #f87171; border-color: #ef444430; }
         .toast.info { background: #27272a; color: #fafafa; }
+
+        /* Estilo forzado para el botón nativo de Cast */
+        google-cast-button {
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+            --connected-color: #3b82f6;
+            --disconnected-color: white;
+        }
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden selection:bg-white selection:text-black">
@@ -70,7 +79,6 @@
             <h1 class="text-lg lg:text-xl font-bold tracking-tight">IPTV <span class="bg-surface border border-white/10 text-white px-2 py-0.5 rounded text-sm lg:text-base ml-1">Hub</span></h1>
         </div>
         
-        <!-- Botón para ocultar/mostrar lista -->
         <button onclick="toggleChannelList()" class="p-2 lg:px-4 lg:py-2 bg-surface hover:bg-white hover:text-black border border-border rounded-lg flex items-center gap-2 transition-all duration-200 group">
             <i data-lucide="layout-panel-left" class="w-5 h-5"></i>
             <span class="hidden lg:block text-sm font-medium" id="toggle-text">Ocultar Lista</span>
@@ -89,42 +97,52 @@
 
         <!-- Left Side: Player & Info -->
         <section id="main-player-section" class="w-full lg:w-7/12 xl:w-8/12 flex flex-col bg-background border-b lg:border-b-0 lg:border-r border-border lg:h-full lg:overflow-y-auto transition-all duration-300">
-            <!-- Video Player -->
-            <div class="sticky top-0 z-40 lg:relative w-full aspect-video bg-black shrink-0 group border-b border-white/5 lg:border-0 shadow-2xl lg:shadow-none">
-                <video id="video-player" class="w-full h-full" controls crossorigin playsinline></video>
+            
+            <!-- CONTENEDOR DEL REPRODUCTOR (Maneja el FullScreen) -->
+            <div id="player-container" class="sticky top-0 z-40 lg:relative w-full aspect-video bg-black shrink-0 group border-b border-white/5 lg:border-0 shadow-2xl lg:shadow-none flex items-center justify-center transition-all duration-300">
+                <video id="video-player" class="w-full h-full absolute inset-0" controls crossorigin playsinline></video>
                 
-                <!-- Chromecast -->
-                <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
-                    <button id="cast-btn" is="google-cast-button" class="w-10 h-10 bg-black/60 rounded-full flex items-center justify-center hover:bg-white/20 border border-white/10 transition-colors backdrop-blur"></button>
+                <!-- Overlay: Indicador de Canal (Top Left) -->
+                <div class="absolute top-4 left-4 bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity z-50 backdrop-blur flex items-center gap-2 pointer-events-none">
+                    <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                    <span id="overlay-channel-indicator" class="text-xs font-bold tracking-wider">-- / --</span>
                 </div>
+
+                <!-- Overlay: Herramientas (Top Right) -->
+                <div class="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+                    <!-- Chromecast Button Wrapper -->
+                    <div class="w-10 h-10 bg-black/60 rounded-lg flex items-center justify-center hover:bg-white/20 border border-white/10 transition-colors backdrop-blur">
+                        <button is="google-cast-button" class="w-6 h-6"></button>
+                    </div>
+                    <!-- Fullscreen Button -->
+                    <button onclick="toggleFullScreen()" class="w-10 h-10 bg-black/60 rounded-lg flex items-center justify-center hover:bg-white/20 border border-white/10 text-white transition-colors backdrop-blur">
+                        <i data-lucide="maximize" class="w-5 h-5" id="fs-icon"></i>
+                    </button>
+                </div>
+
+                <!-- Overlay: Flecha Izquierda (Anterior) -->
+                <button onclick="playPrevious()" class="absolute left-2 lg:left-4 top-1/2 -translate-y-1/2 w-10 h-10 lg:w-14 lg:h-14 bg-black/50 rounded-full flex items-center justify-center hover:bg-white hover:text-black hover:scale-110 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 backdrop-blur shadow-xl">
+                    <i data-lucide="chevron-left" class="w-6 h-6 lg:w-8 lg:h-8"></i>
+                </button>
+
+                <!-- Overlay: Flecha Derecha (Siguiente) -->
+                <button onclick="playNext()" class="absolute right-2 lg:right-4 top-1/2 -translate-y-1/2 w-10 h-10 lg:w-14 lg:h-14 bg-black/50 rounded-full flex items-center justify-center hover:bg-white hover:text-black hover:scale-110 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-all duration-200 z-50 backdrop-blur shadow-xl">
+                    <i data-lucide="chevron-right" class="w-6 h-6 lg:w-8 lg:h-8"></i>
+                </button>
             </div>
 
-            <!-- Info Panel -->
-            <div class="p-5 lg:p-8 flex-1 flex flex-col">
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 lg:gap-3 mb-3 flex-wrap">
+            <!-- Info Panel (Modificado para quitar el espacio en blanco) -->
+            <div class="p-5 lg:p-8 flex-1 custom-scrollbar">
+                <div class="mb-5">
+                    <h2 id="info-title" class="text-2xl lg:text-4xl font-bold tracking-tight mb-3 truncate">Selecciona un canal</h2>
+                    <div class="flex items-center gap-2 lg:gap-3 flex-wrap">
                         <span id="info-category" class="px-2.5 py-1 rounded-md text-[10px] lg:text-xs font-semibold bg-surface border border-white/5 text-muted uppercase tracking-wider">Categoría</span>
                         <span id="info-country" class="text-xs lg:text-sm text-muted flex items-center gap-1.5"><i data-lucide="globe-2" class="w-3.5 h-3.5 lg:w-4 lg:h-4"></i> País</span>
                     </div>
-                    <h2 id="info-title" class="text-2xl lg:text-4xl font-bold tracking-tight mb-2 truncate">Selecciona un canal</h2>
-                    <p id="info-desc" class="text-muted text-sm leading-relaxed max-w-2xl">
-                        Explora la lista para comenzar la reproducción. La guía de programación se cargará automáticamente.
-                    </p>
                 </div>
 
-                <!-- Controls -->
-                <div class="mt-6 flex gap-3">
-                    <button onclick="playPrevious()" class="flex-1 bg-surface border border-white/10 py-3 lg:py-3.5 rounded-xl hover:bg-white/5 transition-colors flex items-center justify-center gap-2 text-sm lg:text-base font-medium">
-                        <i data-lucide="skip-back" class="w-4 h-4 lg:w-5 lg:h-5"></i> Anterior
-                    </button>
-                    <!-- Primary Button (White) -->
-                    <button onclick="playNext()" class="flex-1 bg-white text-black py-3 lg:py-3.5 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm lg:text-base font-semibold shadow-lg">
-                        Siguiente <i data-lucide="skip-forward" class="w-4 h-4 lg:w-5 lg:h-5"></i>
-                    </button>
-                </div>
-
-                <!-- EPG -->
-                <div id="epg-container" class="mt-6 glass-panel p-5 rounded-xl hidden">
+                <!-- EPG (Ahora fluirá naturalmente debajo del título sin espacios gigantes) -->
+                <div id="epg-container" class="glass-panel p-5 rounded-xl hidden">
                     <h3 class="text-xs lg:text-sm font-semibold text-white mb-4 flex items-center gap-2">
                         <i data-lucide="list-video" class="w-4 h-4 lg:w-5 lg:h-5"></i> Guía de Programación
                     </h3>
@@ -192,7 +210,7 @@
             loaderText: document.getElementById('loader-text')
         };
 
-        // --- LÓGICA DE INTERFAZ ---
+        // --- LÓGICA DE INTERFAZ Y PANTALLA COMPLETA ---
         function toggleChannelList() {
             state.listVisible = !state.listVisible;
             const leftPanel = document.getElementById('main-player-section');
@@ -211,6 +229,64 @@
                 if(toggleText) toggleText.innerText = "Mostrar Lista";
             }
         }
+
+        async function toggleFullScreen() {
+            const container = document.getElementById('player-container');
+            const icon = document.getElementById('fs-icon');
+            
+            // Verificamos si estamos en "Pseudo-Fullscreen" usando clases de Tailwind
+            const isPseudoFS = container.classList.contains('fixed');
+            
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && !isPseudoFS) {
+                let success = false;
+                
+                // Intento 1: Fullscreen API Nativo
+                try {
+                    if (container.requestFullscreen) {
+                        await container.requestFullscreen();
+                        success = true;
+                    } else if (container.webkitRequestFullscreen) { /* Safari */
+                        container.webkitRequestFullscreen();
+                        success = true;
+                    }
+                } catch (err) {
+                    success = false;
+                }
+                
+                // Intento 2: Pseudo-Fullscreen usando clases si el nativo falló
+                if (!success) {
+                    container.classList.remove('sticky', 'lg:relative', 'aspect-video', 'top-0', 'z-40');
+                    container.classList.add('fixed', 'inset-0', 'z-[9999]', 'w-[100vw]', 'h-[100dvh]');
+                }
+                
+                icon.setAttribute('data-lucide', 'minimize');
+            } else {
+                // Restaurar vista normal
+                try {
+                    if (document.fullscreenElement && document.exitFullscreen) {
+                        await document.exitFullscreen();
+                    } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    }
+                } catch (e) {}
+                
+                // Remover clases de Pseudo-Fullscreen (CSS fallback)
+                container.classList.remove('fixed', 'inset-0', 'z-[9999]', 'w-[100vw]', 'h-[100dvh]');
+                container.classList.add('sticky', 'lg:relative', 'aspect-video', 'top-0', 'z-40');
+                icon.setAttribute('data-lucide', 'maximize');
+            }
+            lucide.createIcons({ root: container });
+        }
+
+        // Salir de CSS Pseudo-Fullscreen pulsando ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const container = document.getElementById('player-container');
+                if (container && container.classList.contains('fixed')) {
+                    toggleFullScreen();
+                }
+            }
+        });
 
         function getProxyUrl(type, value) {
             try {
@@ -298,6 +374,7 @@
                 .map(c => ({
                     id: c.id,
                     name: c.name,
+                    logo: c.logo || '',
                     country: c.country ? c.country.toLowerCase() : 'desconocido',
                     category: (c.categories && c.categories.length > 0) ? c.categories[0] : 'general',
                     url: streamMap[c.id]
@@ -357,6 +434,11 @@
             DOM.list.innerHTML = '';
             DOM.count.innerText = `${state.filtered.length} canales`;
 
+            const indicator = document.getElementById('overlay-channel-indicator');
+            if (indicator && state.currentIndex === -1) {
+                indicator.innerText = `0 / ${state.filtered.length}`;
+            }
+
             const limit = Math.min(state.filtered.length, 200);
 
             for (let i = 0; i < limit; i++) {
@@ -389,7 +471,6 @@
                 DOM.list.appendChild(div);
             }
             
-            // Re-renderizar iconos (el fallback del TV)
             lucide.createIcons({ root: DOM.list });
         }
 
@@ -518,7 +599,6 @@
             const nextProgram = currentIdx !== -1 && currentIdx + 1 < programs.length ? programs[currentIdx + 1] : null;
 
             if (currentProgram) {
-                // Nuevo diseño de tarjeta de EPG
                 let html = `
                     <div class="mb-3 p-4 bg-surface border border-white/5 rounded-xl relative overflow-hidden">
                         <div class="absolute top-0 left-0 w-1 h-full bg-white"></div>
@@ -576,14 +656,43 @@
         }
 
 
+        // --- CUSTOM PROXY LOADER PARA ARREGLAR RUTAS RELATIVAS (.ts) ---
+        class ProxyLoader extends Hls.DefaultConfig.loader {
+            constructor(config) {
+                super(config);
+            }
+            load(context, config, callbacks) {
+                const originalUrl = context.url;
+                
+                context.url = getProxyUrl('url', originalUrl);
+                
+                const onSuccess = callbacks.onSuccess;
+                callbacks.onSuccess = (response, stats, ctx, networkDetails) => {
+                    response.url = originalUrl;
+                    if (onSuccess) {
+                        onSuccess(response, stats, ctx, networkDetails);
+                    }
+                };
+                
+                super.load(context, config, callbacks);
+            }
+        }
+
         // --- REPRODUCTOR ---
         function playChannel(index, autoPlay = true) {
             if (index < 0 || index >= state.filtered.length) return;
             
+            // Limpiar timeouts anteriores
             clearTimeout(state.skipTimeout);
+
             state.currentIndex = index;
             const channel = state.filtered[index];
             updateUISelection(index);
+
+            const indicator = document.getElementById('overlay-channel-indicator');
+            if (indicator) {
+                indicator.innerText = `${index + 1} / ${state.filtered.length}`;
+            }
 
             // Actualizar panel de Info
             document.getElementById('info-title').innerText = channel.name;
@@ -592,8 +701,6 @@
             const countryName = state.countriesMap[channel.country] || channel.country?.toUpperCase() || 'Desconocido';
             document.getElementById('info-country').innerHTML = `<i data-lucide="globe-2" class="w-3.5 h-3.5"></i> ${countryName}`;
             lucide.createIcons({ root: document.getElementById('info-country') });
-
-            const streamEndpoint = getProxyUrl('url', channel.url);
 
             // EPG
             loadAndShowEPG(channel.country, channel.id, channel.name);
@@ -605,8 +712,12 @@
             }
 
             if (Hls.isSupported()) {
-                state.hls = new Hls({ maxMaxBufferLength: 30 });
-                state.hls.loadSource(streamEndpoint);
+                state.hls = new Hls({ 
+                    maxMaxBufferLength: 30,
+                    loader: ProxyLoader // Inyectamos la magia
+                });
+                
+                state.hls.loadSource(channel.url);
                 state.hls.attachMedia(DOM.video);
                 
                 state.hls.on(Hls.Events.MANIFEST_PARSED, function() {
@@ -646,10 +757,14 @@
                 });
 
             } else if (DOM.video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari nativo
+                const streamEndpoint = getProxyUrl('url', channel.url);
                 DOM.video.src = streamEndpoint;
                 if(autoPlay) DOM.video.play();
                 
-                DOM.video.onplaying = () => { state.consecutiveErrors = 0; };
+                DOM.video.onplaying = () => { 
+                    state.consecutiveErrors = 0; 
+                };
                 DOM.video.onerror = () => {
                     state.consecutiveErrors++;
                     if (state.consecutiveErrors > 10) {

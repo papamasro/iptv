@@ -1,633 +1,716 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Magis Unified</title>
-  
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Premium Player | MVP</title>
     
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #050505;
-      color: #f3f4f6;
-      overflow-x: hidden;
-      -webkit-tap-highlight-color: transparent;
-    }
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#09090b', /* Zinc 950 */
+                        surface: '#18181b',    /* Zinc 900 */
+                        border: '#27272a',     /* Zinc 800 */
+                        muted: '#a1a1aa'       /* Zinc 400 */
+                    }
+                }
+            }
+        }
+    </script>
 
-    ::-webkit-scrollbar { width: 0px; background: transparent; }
-
-    .glass-nav {
-      background: rgba(10, 10, 10, 0.9);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .channel-card {
-      background: #111;
-      border: 1px solid #1a1a1a;
-      transition: all 0.2s ease;
-      cursor: pointer;
-    }
+    <!-- HLS.js para reproducir M3U8 -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
-    .channel-card:hover {
-      background: #151515;
-      border-color: #3b82f6;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
-    }
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-    select {
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-      background-position: right 0.5rem center;
-      background-repeat: no-repeat;
-      background-size: 1.5em 1.5em;
-      appearance: none;
-    }
+    <!-- Google Cast SDK -->
+    <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 
-    .loader { border: 3px solid rgba(255,255,255,0.1); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    
-    .cast-active { color: #3b82f6 !important; }
-    .source-badge { font-size: 0.55rem; padding: 0.1rem 0.3rem; border-radius: 4px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; }
-    
-    .epg-text { font-size: 0.65rem; line-height: 1.2; }
-  </style>
-</head>
-<body class="flex flex-col h-screen">
-
-  <!-- Navegación -->
-  <nav class="glass-nav fixed top-0 w-full z-40 px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <div class="bg-blue-600 text-white p-1.5 rounded-lg">
-        <span class="material-symbols-outlined text-xl">tv_options_edit_channels</span>
-      </div>
-      <h1 class="text-lg font-bold tracking-tight hidden sm:block">Magis Unified</h1>
-    </div>
-    
-    <!-- Buscador Integrado -->
-    <div class="flex-1 max-w-xl mx-4 relative">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg">search</span>
-      <input type="text" id="searchInput" placeholder="Buscar canales o programas..." 
-             class="w-full bg-zinc-900 border border-zinc-800 text-sm rounded-full pl-10 pr-4 py-2 focus:outline-none focus:border-blue-500 transition-colors">
-    </div>
-
-    <div class="flex items-center gap-2">
-      <div class="hidden sm:flex items-center gap-2 bg-zinc-900 px-3 py-1 rounded-full border border-zinc-800 text-xs">
-        <div class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-        <span id="channelCount" class="text-gray-400 font-medium font-mono">0</span>
-      </div>
-      <button onclick="toggleCast()" class="castBtn text-gray-400 hover:text-white p-2">
-        <span class="material-symbols-outlined">cast</span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- Contenedor Principal -->
-  <main class="flex-1 overflow-y-auto pt-20 pb-10 px-4 sm:px-6 w-full max-w-screen-2xl mx-auto flex flex-col">
-    
-    <!-- Filtros -->
-    <div class="flex flex-wrap gap-2 mb-6 p-3 bg-zinc-900/50 rounded-xl border border-zinc-800/50">
-      <select id="sourceFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
-        <option value="all">Todos los Proveedores</option>
-      </select>
-      <select id="countryFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
-        <option value="all">Todo el Mundo</option>
-      </select>
-      <select id="categoryFilter" class="bg-zinc-950 border border-zinc-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-gray-300 flex-1 min-w-[120px]">
-        <option value="all">Todas las Categorías</option>
-      </select>
-    </div>
-
-    <!-- Loading -->
-    <div id="loadingState" class="flex flex-col items-center justify-center py-20 flex-1">
-      <div class="loader w-10 h-10 mb-4"></div>
-      <p id="loadingText" class="text-gray-400 font-medium animate-pulse text-sm">Detectando ubicación y cargando guía EPG...</p>
-    </div>
-
-    <!-- Grid -->
-    <div id="channelGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3"></div>
-
-    <!-- Empty -->
-    <div id="emptyState" class="hidden flex-col items-center justify-center py-20 text-center flex-1">
-      <span class="material-symbols-outlined text-5xl text-gray-800 mb-3">tv_off</span>
-      <h3 class="text-lg font-bold text-gray-300">Sin resultados</h3>
-      <p class="text-gray-500 text-xs mt-1">Intenta limpiar los filtros.</p>
-    </div>
-  </main>
-
-  <!-- Player Modal -->
-  <div id="playerModal" class="fixed inset-0 z-[100] bg-black hidden opacity-0 transition-opacity duration-300 flex-col">
-    <!-- Header Player -->
-    <div class="absolute top-0 left-0 w-full p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent z-10 flex justify-between items-start">
-      <div class="flex items-center gap-3">
-        <img id="playerLogo" src="" class="w-10 h-10 rounded bg-white/5 object-contain p-1 border border-white/10" onerror="this.style.display='none'">
-        <div>
-          <h2 id="playerTitle" class="text-lg font-bold text-white leading-tight truncate max-w-[200px] sm:max-w-md">Cargando...</h2>
-          <div class="flex flex-wrap items-center gap-2 mt-0.5">
-            <span id="playerStatus" class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">Init</span>
-            <span id="playerSource" class="text-[9px] text-gray-400 uppercase tracking-widest"></span>
-            <span id="playerEPGInfo" class="text-[10px] text-emerald-400 font-medium"></span>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="toggleCast()" class="castBtn bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors">
-          <span class="material-symbols-outlined text-xl">cast</span>
-        </button>
-        <button onclick="closePlayer()" class="bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors">
-          <span class="material-symbols-outlined text-xl">close</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Video Container -->
-    <div class="flex-1 w-full h-full flex items-center justify-center relative bg-black group">
-      <video id="videoElement" class="w-full h-full" controls playsinline autoplay></video>
-      
-      <!-- Controles de Navegación -->
-      <div class="absolute inset-y-0 left-0 w-24 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onclick="navigateChannel(-1)" class="bg-black/50 hover:bg-black/80 p-3 rounded-full text-white">
-          <span class="material-symbols-outlined text-3xl">chevron_left</span>
-        </button>
-      </div>
-      <div class="absolute inset-y-0 right-0 w-24 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onclick="navigateChannel(1)" class="bg-black/50 hover:bg-black/80 p-3 rounded-full text-white">
-          <span class="material-symbols-outlined text-3xl">chevron_right</span>
-        </button>
-      </div>
-
-      <div id="videoError" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-center p-6 text-center hidden z-20">
-        <span class="material-symbols-outlined text-4xl text-red-500 mb-3">broken_image</span>
-        <h3 class="text-lg font-bold text-white mb-1">Señal Caída o Protegida</h3>
-        <p class="text-gray-400 text-xs max-w-sm mb-6">El servidor original rechazó la conexión o el link expiró.</p>
-        <button onclick="closePlayer()" class="bg-zinc-800 hover:bg-zinc-700 px-5 py-2 text-sm rounded-md transition-colors border border-zinc-700">Cerrar</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ⚠️ URL de tu Cloudflare Worker
-    const WORKER_URL = 'https://tvip.papamasro.workers.dev';
-    const PROXY_URL = WORKER_URL + '/?url=';
-    
-    const SOURCES = [
-      { id: 'iptv-org', name: 'IPTV Global', type: 'json', streams: 'https://iptv-org.github.io/api/streams.json', meta: 'https://iptv-org.github.io/api/channels.json', color: 'bg-blue-900/50 text-blue-400' },
-      { id: 'espana', name: 'España Local', type: 'm3u', url: 'https://iptv-org.github.io/iptv/countries/es.m3u', color: 'bg-red-900/50 text-red-400' },
-      { id: 'pluto', name: 'Pluto TV', type: 'm3u', url: 'https://raw.githubusercontent.com/iptv-org/iptv/master/streams/pluto_tv.m3u', color: 'bg-yellow-900/50 text-yellow-400' }
-    ];
-
-    const state = {
-      allChannels: [],
-      filtered: [],
-      filters: { search: '', source: 'all', country: 'all', category: 'all' },
-      hlsPlayer: null,
-      castSession: null,
-      currentIndex: -1,
-      userCountry: 'ar',
-      epgCache: null   // { country, programmes: Map, channelNames: {}, lookup: fn }
-    };
-
-    const DOM = {
-      grid: document.getElementById('channelGrid'),
-      loading: document.getElementById('loadingState'),
-      loadingText: document.getElementById('loadingText'),
-      empty: document.getElementById('emptyState'),
-      count: document.getElementById('channelCount'),
-      selSource: document.getElementById('sourceFilter'),
-      selCountry: document.getElementById('countryFilter'),
-      selCategory: document.getElementById('categoryFilter'),
-      inpSearch: document.getElementById('searchInput'),
-      player: {
-        modal: document.getElementById('playerModal'),
-        video: document.getElementById('videoElement'),
-        title: document.getElementById('playerTitle'),
-        logo: document.getElementById('playerLogo'),
-        status: document.getElementById('playerStatus'),
-        source: document.getElementById('playerSource'),
-        epg: document.getElementById('playerEPGInfo'),
-        error: document.getElementById('videoError')
-      }
-    };
-
-    async function init() {
-      setupEvents();
-      setupCast();
-      
-      // 1. Detectar ubicación y precargar EPG
-      try {
-        const geo = await fetch('https://ipapi.co/json/').then(r => r.json());
-        if(geo.country_code) {
-          state.userCountry = geo.country_code.toLowerCase();
-          state.filters.country = state.userCountry;
-        }
-      } catch(e) { console.warn("Geo falló"); }
-
-      // Cargar EPG del país antes de renderizar
-      DOM.loadingText.textContent = `Descargando guía EPG (${state.userCountry.toUpperCase()})...`;
-      await loadEPG(state.userCountry);
-
-      // 2. Cargar Canales
-      let allLoadedChannels = [];
-      for (const source of SOURCES) {
-        DOM.loadingText.textContent = `Descargando ${source.name}...`;
-        try {
-          let channels = [];
-          if (source.type === 'json') channels = await fetchJSON(source);
-          else if (source.type === 'm3u') channels = await fetchM3U(source);
-          allLoadedChannels = allLoadedChannels.concat(channels);
-        } catch (e) { console.error(`Error ${source.name}:`, e); }
-      }
-
-      const uniqueUrls = new Set();
-      state.allChannels = allLoadedChannels.filter(c => {
-        if (uniqueUrls.has(c.url)) return false;
-        uniqueUrls.add(c.url);
-        return true;
-      });
-
-      populateSelects();
-      DOM.selCountry.value = state.filters.country;
-      applyFilters();
-
-      DOM.loading.classList.add('hidden');
-    }
-
-    /**
-     * EPG SYSTEM – REAL XMLTV desde Worker
-     */
-    async function loadEPG(countryCode) {
-      DOM.loadingText.textContent = `Sincronizando guía EPG (${countryCode.toUpperCase()})...`;
-      try {
-        const resp = await fetch(`${WORKER_URL}/?epg=${countryCode}`);
-        if (!resp.ok) throw new Error(`Error ${resp.status}`);
-        const xmlText = await resp.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-
-        // Usar getElementsByTagName para ignorar namespaces
-        const channelNodes = xmlDoc.getElementsByTagName('channel');
-        const channelNames = {};
-        for (let ch of channelNodes) {
-          const id = ch.getAttribute('id');
-          const displayNames = ch.getElementsByTagName('display-name');
-          if (id && displayNames.length > 0) {
-            channelNames[id] = displayNames[0].textContent.trim();
-          }
-        }
-
-        const programmeNodes = xmlDoc.getElementsByTagName('programme');
-        const programmes = new Map(); // channelId -> { title, start, stop }
-        const now = Date.now();
-
-        for (let p of programmeNodes) {
-          const startStr = p.getAttribute('start');
-          const stopStr = p.getAttribute('stop');
-          const ch = p.getAttribute('channel');
-          if (!ch || !startStr || !stopStr) continue;
-
-          const start = parseXmltvDate(startStr);
-          const stop  = parseXmltvDate(stopStr);
-          if (start === null || stop === null) continue;
-
-          if (start <= now && now < stop) {
-            const titleNodes = p.getElementsByTagName('title');
-            const title = titleNodes.length > 0 ? titleNodes[0].textContent.trim() : 'Sin título';
-            programmes.set(ch, { title, start, stop });
-          }
-        }
-
-        // Función de normalización
-        const normalize = str => {
-          return str
-            .toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar acentos
-            .replace(/[^a-z0-9\s]/g, '') // quitar símbolos
-            .replace(/\s+/g, ' ')        // espacios múltiples
-            .trim();
-        };
-
-        const channelNameNorm = {};
-        for (const [id, name] of Object.entries(channelNames)) {
-          channelNameNorm[id] = normalize(name);
-        }
-
-        function lookup(channelName) {
-          const target = normalize(channelName);
-          if (!target) return null;
-
-          // Coincidencia exacta
-          for (const [id, norm] of Object.entries(channelNameNorm)) {
-            if (norm === target) return programmes.get(id);
-          }
-          // Coincidencia parcial: el nombre del EPG contiene al del canal o viceversa
-          for (const [id, norm] of Object.entries(channelNameNorm)) {
-            if (norm.includes(target) || target.includes(norm)) return programmes.get(id);
-          }
-          return null;
-        }
-
-        state.epgCache = {
-          country: countryCode,
-          programmes,
-          channelNames,
-          lookup
-        };
-
-        console.log(`EPG cargado: ${Object.keys(channelNames).length} canales, ${programmes.size} programas actuales`);
-        // Muestra algunos títulos para debug
-        if (programmes.size > 0) {
-          const sample = Array.from(programmes.values()).slice(0, 3);
-          console.log('Ejemplos de programas:', sample.map(p => p.title));
-        }
-      } catch (e) {
-        console.error('Falló carga EPG:', e);
-        // Cache vacío para evitar errores
-        state.epgCache = { country: countryCode, programmes: new Map(), channelNames: {}, lookup: () => null };
-      }
-    }
-
-    function parseXmltvDate(str) {
-      // Formatos: "20260429013000 +0000" o "20260429013000"
-      if (!str) return null;
-      const parts = str.split(' ');
-      const datePart = parts[0]; // YYYYMMDDhhmmss
-      if (datePart.length < 14) return null;
-      const Y = parseInt(datePart.substring(0,4), 10);
-      const M = parseInt(datePart.substring(4,6), 10) - 1;
-      const D = parseInt(datePart.substring(6,8), 10);
-      const h = parseInt(datePart.substring(8,10), 10);
-      const m = parseInt(datePart.substring(10,12), 10);
-      const s = parseInt(datePart.substring(12,14), 10);
-      const date = new Date(Y, M, D, h, m, s);
-      // Ajuste por zona horaria (si existe)
-      if (parts.length >= 2) {
-        const tzStr = parts[1];
-        const sign = tzStr[0] === '+' ? 1 : -1;
-        const tzHours = parseInt(tzStr.substring(1,3), 10) || 0;
-        const tzMins = parseInt(tzStr.substring(3,5), 10) || 0;
-        const offset = sign * (tzHours * 60 + tzMins) * 60000;
-        return date.getTime() - offset; // convertir a UTC
-      }
-      return date.getTime();
-    }
-
-    function getNowPlaying(channelName) {
-      if (!state.epgCache || !state.epgCache.lookup) return 'Cargando...';
-      const prog = state.epgCache.lookup(channelName);
-      return prog ? prog.title : 'Sin datos';
-    }
-
-    /**
-     * FETCHERS
-     */
-    async function fetchJSON(source) {
-      const [streams, metaData] = await Promise.all([
-        fetch(source.streams).then(r => r.json()),
-        fetch(source.meta).then(r => r.json())
-      ]);
-      const dict = {};
-      metaData.forEach(c => dict[c.id] = c);
-      return streams.filter(s => s.url).map(s => {
-        const m = dict[s.channel] || {};
-        let name = m.name || s.channel;
-        if (!name) {
-          try {
-            const urlObj = new URL(s.url);
-            name = urlObj.pathname.split('/').pop().replace('.m3u8', '').replace(/[-_]/g, ' ') || urlObj.hostname;
-          } catch(e) { name = "Stream"; }
-        }
-        return {
-          id: s.channel || btoa(s.url).substring(0,10),
-          name: name,
-          url: s.url,
-          logo: m.logo || '',
-          category: (m.categories && m.categories[0]) || 'General',
-          country: (m.country || 'global').toLowerCase(),
-          sourceId: source.id,
-          sourceName: source.name,
-          color: source.color
-        };
-      });
-    }
-
-    async function fetchM3U(source) {
-      try {
-        const res = await fetch(source.url.includes('github') ? source.url : PROXY_URL + encodeURIComponent(source.url));
-        const text = await res.text();
-        const lines = text.split('\n');
-        const results = [];
-        let current = {};
-        for (let line of lines) {
-          line = line.trim();
-          if (line.startsWith('#EXTINF:')) {
-            current = { logo: '', category: 'General', country: 'global', sourceId: source.id, sourceName: source.name, color: source.color };
-            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-            if (logoMatch) current.logo = logoMatch[1];
-            const groupMatch = line.match(/group-title="([^"]+)"/);
-            if (groupMatch) current.category = groupMatch[1];
-            const splitComma = line.split(',');
-            current.name = splitComma.length > 1 ? splitComma[splitComma.length - 1].trim() : "Canal";
-          } else if (line && !line.startsWith('#')) {
-            current.url = line;
-            if(current.url.startsWith('http')) results.push({...current});
-            current = {};
-          }
-        }
-        return results;
-      } catch(e) { return []; }
-    }
-
-    function setupEvents() {
-      DOM.inpSearch.addEventListener('input', e => { state.filters.search = e.target.value.toLowerCase(); applyFilters(); });
-      DOM.selSource.addEventListener('change', e => { state.filters.source = e.target.value; applyFilters(); });
-      DOM.selCountry.addEventListener('change', async e => { 
-        state.filters.country = e.target.value; 
-        if(e.target.value !== 'all') {
-          DOM.loading.classList.remove('hidden');
-          DOM.loading.classList.add('flex');
-          DOM.loadingText.textContent = `Cargando EPG (${e.target.value.toUpperCase()})...`;
-          await loadEPG(e.target.value);
-          DOM.loading.classList.add('hidden');
-        }
-        applyFilters();
-      });
-      DOM.selCategory.addEventListener('change', e => { state.filters.category = e.target.value; applyFilters(); });
-    }
-
-    function populateSelects() {
-      const getUnique = key => [...new Set(state.allChannels.map(c => c[key]).filter(Boolean))].sort();
-      SOURCES.forEach(s => DOM.selSource.add(new Option(s.name, s.id)));
-      getUnique('country').forEach(c => DOM.selCountry.add(new Option(c.toUpperCase(), c)));
-      getUnique('category').forEach(c => DOM.selCategory.add(new Option(c, c)));
-    }
-
-    function applyFilters() {
-      const { search, source, country, category } = state.filters;
-      state.filtered = state.allChannels.filter(c => {
-        const str = (c.name + c.category + getNowPlaying(c.name)).toLowerCase();
-        return (!search || str.includes(search)) &&
-               (source === 'all' || c.sourceId === source) &&
-               (country === 'all' || c.country === country) &&
-               (category === 'all' || c.category === category);
-      });
-      renderGrid();
-    }
-
-    function renderGrid() {
-      DOM.grid.innerHTML = '';
-      if(state.filtered.length === 0) {
-        DOM.empty.classList.remove('hidden');
-        DOM.empty.classList.add('flex');
-        DOM.count.textContent = '0';
-        return;
-      }
-      DOM.empty.classList.add('hidden');
-      DOM.count.textContent = state.filtered.length;
-      
-      const slice = state.filtered.slice(0, 150);
-      DOM.grid.innerHTML = slice.map((c, i) => {
-        const fallAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.name.substring(0,2))}&background=111&color=555&size=64&bold=true`;
-        const nowPlaying = getNowPlaying(c.name);
+    <style>
+        /* Estilos personalizados y scrollbars */
+        body { background-color: #09090b; color: #fafafa; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
         
-        return `
-          <div class="channel-card rounded-xl overflow-hidden flex flex-col h-full" onclick="playStream(${i})">
-            <div class="aspect-video w-full bg-black p-3 flex items-center justify-center relative">
-              <img src="${c.logo || fallAvatar}" onerror="this.src='${fallAvatar}'" class="max-h-full max-w-full object-contain z-10" loading="lazy">
-              <span class="source-badge absolute top-2 left-2 ${c.color}">${c.sourceName}</span>
+        .glass-panel { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        
+        .channel-card { transition: all 0.2s ease; border: 1px solid transparent; }
+        .channel-card:hover { background: rgba(255, 255, 255, 0.03); }
+        .channel-card.active { 
+            background: rgba(255, 255, 255, 0.06); 
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        
+        /* Animaciones */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* Toast */
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+        .toast { padding: 14px 20px; border-radius: 12px; font-weight: 500; display: flex; align-items: center; gap: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); animation: fadeIn 0.3s ease-out; font-size: 0.875rem; border: 1px solid rgba(255,255,255,0.1); }
+        .toast.error { background: #27272a; color: #f87171; border-color: #ef444430; }
+        .toast.info { background: #27272a; color: #fafafa; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden selection:bg-white selection:text-black">
+
+    <!-- Navbar -->
+    <header class="glass-panel sticky top-0 z-50 px-4 py-3 lg:px-6 lg:py-4 flex items-center justify-between shrink-0 border-b-0 lg:border-b">
+        <div class="flex items-center gap-3">
+            <div class="bg-white text-black p-1.5 lg:p-2 rounded-lg"><i data-lucide="tv" class="w-5 h-5 lg:w-6 lg:h-6"></i></div>
+            <h1 class="text-lg lg:text-xl font-bold tracking-tight">IPTV <span class="bg-surface border border-white/10 text-white px-2 py-0.5 rounded text-sm lg:text-base ml-1">Hub</span></h1>
+        </div>
+        
+        <!-- Botón para ocultar/mostrar lista -->
+        <button onclick="toggleChannelList()" class="p-2 lg:px-4 lg:py-2 bg-surface hover:bg-white hover:text-black border border-border rounded-lg flex items-center gap-2 transition-all duration-200 group">
+            <i data-lucide="layout-panel-left" class="w-5 h-5"></i>
+            <span class="hidden lg:block text-sm font-medium" id="toggle-text">Ocultar Lista</span>
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden relative">
+        
+        <!-- Loading Overlay -->
+        <div id="loader" class="absolute inset-0 bg-background z-50 flex flex-col items-center justify-center">
+            <i data-lucide="loader" class="w-10 h-10 lg:w-12 lg:h-12 text-white animate-spin mb-4"></i>
+            <h2 class="text-lg lg:text-xl font-semibold tracking-tight" id="loader-text">Inicializando...</h2>
+            <p class="text-muted mt-2 text-xs lg:text-sm text-center px-4">Conectando con la base de datos de canales</p>
+        </div>
+
+        <!-- Left Side: Player & Info -->
+        <section id="main-player-section" class="w-full lg:w-7/12 xl:w-8/12 flex flex-col bg-background border-b lg:border-b-0 lg:border-r border-border lg:h-full lg:overflow-y-auto transition-all duration-300">
+            <!-- Video Player -->
+            <div class="sticky top-0 z-40 lg:relative w-full aspect-video bg-black shrink-0 group border-b border-white/5 lg:border-0 shadow-2xl lg:shadow-none">
+                <video id="video-player" class="w-full h-full" controls crossorigin playsinline></video>
+                
+                <!-- Chromecast -->
+                <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity hidden lg:block">
+                    <button id="cast-btn" is="google-cast-button" class="w-10 h-10 bg-black/60 rounded-full flex items-center justify-center hover:bg-white/20 border border-white/10 transition-colors backdrop-blur"></button>
+                </div>
             </div>
-            <div class="p-2 border-t border-zinc-800/50 flex flex-col justify-between flex-1">
-              <div>
-                <h3 class="text-[10px] font-bold text-gray-200 line-clamp-1 uppercase leading-tight mb-1">${c.name}</h3>
-                <p class="epg-text text-emerald-500 font-medium line-clamp-1 truncate">
-                  <span class="opacity-50">Ahora:</span> ${nowPlaying}
-                </p>
-              </div>
-              <div class="flex items-center justify-between mt-2 pt-1 border-t border-white/5">
-                <span class="text-[8px] text-gray-500 font-mono">${c.country.toUpperCase()}</span>
-                <span class="text-[8px] text-gray-600 truncate max-w-[60px]">${c.category}</span>
-              </div>
+
+            <!-- Info Panel -->
+            <div class="p-5 lg:p-8 flex-1 flex flex-col">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 lg:gap-3 mb-3 flex-wrap">
+                        <span id="info-category" class="px-2.5 py-1 rounded-md text-[10px] lg:text-xs font-semibold bg-surface border border-white/5 text-muted uppercase tracking-wider">Categoría</span>
+                        <span id="info-country" class="text-xs lg:text-sm text-muted flex items-center gap-1.5"><i data-lucide="globe-2" class="w-3.5 h-3.5 lg:w-4 lg:h-4"></i> País</span>
+                    </div>
+                    <h2 id="info-title" class="text-2xl lg:text-4xl font-bold tracking-tight mb-2 truncate">Selecciona un canal</h2>
+                    <p id="info-desc" class="text-muted text-sm leading-relaxed max-w-2xl">
+                        Explora la lista para comenzar la reproducción. La guía de programación se cargará automáticamente.
+                    </p>
+                </div>
+
+                <!-- Controls -->
+                <div class="mt-6 flex gap-3">
+                    <button onclick="playPrevious()" class="flex-1 bg-surface border border-white/10 py-3 lg:py-3.5 rounded-xl hover:bg-white/5 transition-colors flex items-center justify-center gap-2 text-sm lg:text-base font-medium">
+                        <i data-lucide="skip-back" class="w-4 h-4 lg:w-5 lg:h-5"></i> Anterior
+                    </button>
+                    <!-- Primary Button (White) -->
+                    <button onclick="playNext()" class="flex-1 bg-white text-black py-3 lg:py-3.5 rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm lg:text-base font-semibold shadow-lg">
+                        Siguiente <i data-lucide="skip-forward" class="w-4 h-4 lg:w-5 lg:h-5"></i>
+                    </button>
+                </div>
+
+                <!-- EPG -->
+                <div id="epg-container" class="mt-6 glass-panel p-5 rounded-xl hidden">
+                    <h3 class="text-xs lg:text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                        <i data-lucide="list-video" class="w-4 h-4 lg:w-5 lg:h-5"></i> Guía de Programación
+                    </h3>
+                    <div id="epg-content" class="text-sm text-muted">
+                        <!-- Inyectado dinámicamente -->
+                    </div>
+                </div>
             </div>
-          </div>
-        `;
-      }).join('');
-    }
+        </section>
 
-    /**
-     * REPRODUCTOR
-     */
-    function playStream(index, forceProxy = false) {
-      if(index < 0) index = state.filtered.length - 1;
-      if(index >= state.filtered.length) index = 0;
-      
-      state.currentIndex = index;
-      const c = state.filtered[index];
-      if(!c) return;
+        <!-- Right Side: Channel List -->
+        <section id="channel-list-section" class="w-full lg:w-5/12 xl:w-4/12 flex flex-col lg:h-full bg-background pb-10 lg:pb-0 transition-all duration-300">
+            <!-- Filters -->
+            <div class="p-4 border-b border-border glass-panel shrink-0 z-10 sticky top-0 lg:relative">
+                <div class="relative mb-3">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar canal..." class="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-muted transition-colors text-white placeholder-muted">
+                </div>
+                <div class="flex gap-2">
+                    <select id="countryFilter" class="flex-1 bg-surface border border-border rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none appearance-none truncate cursor-pointer hover:bg-white/5 transition-colors">
+                        <option value="all">Todos los países</option>
+                    </select>
+                    <select id="categoryFilter" class="flex-1 bg-surface border border-border rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none appearance-none truncate cursor-pointer hover:bg-white/5 transition-colors">
+                        <option value="all">Categorías</option>
+                    </select>
+                </div>
+                <div class="mt-2.5 text-[11px] text-muted text-right font-medium" id="channel-count">0 canales</div>
+            </div>
 
-      const finalUrl = forceProxy ? PROXY_URL + encodeURIComponent(c.url) : c.url;
+            <!-- List -->
+            <div id="channel-list" class="flex-1 lg:overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                <!-- Channels injected here -->
+            </div>
+        </section>
+    </main>
 
-      if(state.castSession) {
-        castMedia(finalUrl, c.name);
-        return;
-      }
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
 
-      DOM.player.modal.classList.remove('hidden');
-      DOM.player.modal.classList.add('flex');
-      setTimeout(() => DOM.player.modal.classList.remove('opacity-0'), 10);
-      
-      DOM.player.title.textContent = c.name;
-      DOM.player.source.textContent = c.sourceName;
-      DOM.player.logo.src = c.logo;
-      DOM.player.epg.textContent = "Ahora: " + getNowPlaying(c.name);
-      DOM.player.error.classList.add('hidden');
+    <script>
+        // --- ESTADO GLOBAL ---
+        const state = {
+            channels: [], 
+            filtered: [], 
+            currentIndex: -1,
+            userCountry: 'ar',
+            proxyUrl: 'https://tvip.papamasro.workers.dev/', 
+            hls: null,
+            categoriesMap: {}, 
+            countriesMap: {}, 
+            skipTimeout: null, 
+            consecutiveErrors: 0, 
+            epgCache: {},
+            listVisible: true
+        };
 
-      DOM.player.status.textContent = forceProxy ? "PROXY" : "DIRECTO";
+        const DOM = {
+            video: document.getElementById('video-player'),
+            list: document.getElementById('channel-list'),
+            search: document.getElementById('searchInput'),
+            countryFilter: document.getElementById('countryFilter'),
+            categoryFilter: document.getElementById('categoryFilter'),
+            count: document.getElementById('channel-count'),
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text')
+        };
 
-      if(state.hlsPlayer) state.hlsPlayer.destroy();
+        // --- LÓGICA DE INTERFAZ ---
+        function toggleChannelList() {
+            state.listVisible = !state.listVisible;
+            const leftPanel = document.getElementById('main-player-section');
+            const rightPanel = document.getElementById('channel-list-section');
+            const toggleText = document.getElementById('toggle-text');
 
-      if(Hls.isSupported()) {
-        state.hlsPlayer = new Hls();
-        state.hlsPlayer.loadSource(finalUrl);
-        state.hlsPlayer.attachMedia(DOM.player.video);
-        state.hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => DOM.player.video.play().catch(()=>{}));
-        state.hlsPlayer.on(Hls.Events.ERROR, (e, data) => {
-          if(data.fatal) {
-            if(!forceProxy) playStream(index, true); 
-            else showPlayerError();
-          }
-        });
-      } else if(DOM.player.video.canPlayType('application/vnd.apple.mpegurl')) {
-        DOM.player.video.src = finalUrl;
-        DOM.player.video.play();
-      }
-    }
+            if (state.listVisible) {
+                rightPanel.classList.remove('hidden');
+                leftPanel.classList.remove('lg:w-full', 'xl:w-full');
+                leftPanel.classList.add('lg:w-7/12', 'xl:w-8/12');
+                if(toggleText) toggleText.innerText = "Ocultar Lista";
+            } else {
+                rightPanel.classList.add('hidden');
+                leftPanel.classList.remove('lg:w-7/12', 'xl:w-8/12');
+                leftPanel.classList.add('lg:w-full', 'xl:w-full');
+                if(toggleText) toggleText.innerText = "Mostrar Lista";
+            }
+        }
 
-    function navigateChannel(dir) {
-      playStream(state.currentIndex + dir);
-    }
+        function getProxyUrl(type, value) {
+            try {
+                let base = state.proxyUrl;
+                if (!base.endsWith('/')) base += '/';
+                const urlObj = new URL(base);
+                urlObj.searchParams.set(type, value);
+                return urlObj.toString();
+            } catch (e) {
+                return `${state.proxyUrl}?${type}=${encodeURIComponent(value)}`;
+            }
+        }
 
-    function showPlayerError() {
-      if(state.hlsPlayer) state.hlsPlayer.destroy();
-      DOM.player.error.classList.remove('hidden');
-    }
+        // --- INICIALIZACIÓN ---
+        async function init() {
+            lucide.createIcons();
+            try {
+                updateLoader("Detectando ubicación...");
+                await detectUserCountry();
 
-    window.closePlayer = function() {
-      DOM.player.modal.classList.add('opacity-0');
-      setTimeout(() => {
-        DOM.player.modal.classList.add('hidden');
-        DOM.player.video.pause();
-        if(state.hlsPlayer) state.hlsPlayer.destroy();
-      }, 300);
-    }
+                updateLoader("Descargando grilla de canales...");
+                await fetchIPTVData();
 
-    /**
-     * CHROMECAST
-     */
-    function setupCast() {
-      if (!window.chrome || !chrome.cast || !chrome.cast.isAvailable) {
-        window['__onGCastApiAvailable'] = (isAvail) => { if(isAvail) initCast(); };
-      } else initCast();
-    }
+                setupFilters();
+                renderChannels();
+                
+                DOM.loader.classList.add('hidden');
+                
+                if(state.filtered.length > 0) {
+                    playChannel(0, false);
+                }
 
-    function initCast() {
-      const sessionReq = new chrome.cast.SessionRequest(chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID);
-      const apiConfig = new chrome.cast.ApiConfig(sessionReq, (s) => { state.castSession = s; updateCastUI(true); }, 
-        (avail) => { document.querySelectorAll('.castBtn').forEach(b => b.style.display = avail === 'available' ? 'block' : 'none'); }
-      );
-      chrome.cast.initialize(apiConfig, () => {}, console.error);
-    }
+                DOM.search.addEventListener('input', applyFilters);
+                DOM.countryFilter.addEventListener('change', applyFilters);
+                DOM.categoryFilter.addEventListener('change', applyFilters);
 
-    function updateCastUI(connected) {
-      document.querySelectorAll('.castBtn').forEach(b => connected ? b.classList.add('cast-active') : b.classList.remove('cast-active'));
-    }
+            } catch (error) {
+                console.error(error);
+                updateLoader("Error al cargar datos. Verifica tu conexión.");
+                showToast("Error crítico al iniciar la app.", "error");
+            }
+        }
 
-    window.toggleCast = function() {
-      if(state.castSession) {
-        state.castSession.stop(() => { state.castSession = null; updateCastUI(false); }, console.error);
-      } else {
-        chrome.cast.requestSession((s) => {
-          state.castSession = s;
-          updateCastUI(true);
-          if(state.currentIndex !== -1) castMedia(state.filtered[state.currentIndex].url, state.filtered[state.currentIndex].name);
-        }, console.warn);
-      }
-    }
+        function updateLoader(text) {
+            if(DOM.loaderText) DOM.loaderText.innerText = text;
+        }
 
-    function castMedia(url, title) {
-      if(!state.castSession) return;
-      const mInfo = new chrome.cast.media.MediaInfo(url, 'application/x-mpegurl');
-      mInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
-      mInfo.metadata.title = title;
-      state.castSession.loadMedia(new chrome.cast.media.LoadRequest(mInfo), null, console.error);
-    }
+        async function detectUserCountry() {
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                const data = await res.json();
+                if (data && data.country_code) {
+                    state.userCountry = data.country_code.toLowerCase();
+                }
+            } catch (e) {
+                state.userCountry = 'ar';
+            }
+        }
 
-    init();
-  </script>
+        async function fetchIPTVData() {
+            const [streamsRes, channelsRes, categoriesRes, countriesRes] = await Promise.all([
+                fetch('https://iptv-org.github.io/api/streams.json'),
+                fetch('https://iptv-org.github.io/api/channels.json'),
+                fetch('https://iptv-org.github.io/api/categories.json'),
+                fetch('https://iptv-org.github.io/api/countries.json')
+            ]);
+
+            const streams = await streamsRes.json();
+            const channels = await channelsRes.json();
+            const categories = await categoriesRes.json();
+            const countries = await countriesRes.json();
+
+            categories.forEach(c => state.categoriesMap[c.id] = c.name);
+            countries.forEach(c => state.countriesMap[c.code.toLowerCase()] = c.name);
+
+            const streamMap = {};
+            streams.forEach(s => {
+                if (!streamMap[s.channel] && s.status !== 'error') {
+                    streamMap[s.channel] = s.url;
+                }
+            });
+
+            state.channels = channels
+                .filter(c => streamMap[c.id])
+                .map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    country: c.country ? c.country.toLowerCase() : 'desconocido',
+                    category: (c.categories && c.categories.length > 0) ? c.categories[0] : 'general',
+                    url: streamMap[c.id]
+                }));
+
+            state.channels.sort((a, b) => a.name.localeCompare(b.name));
+            state.filtered = [...state.channels];
+        }
+
+        function setupFilters() {
+            const countries = [...new Set(state.channels.map(c => c.country).filter(Boolean))].sort((a, b) => {
+                const nameA = state.countriesMap[a] || a;
+                const nameB = state.countriesMap[b] || b;
+                return nameA.localeCompare(nameB);
+            });
+
+            const cats = [...new Set(state.channels.map(c => c.category).filter(Boolean))].sort();
+
+            countries.forEach(c => {
+                if (c === 'desconocido') return;
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.innerText = state.countriesMap[c] || c.toUpperCase();
+                DOM.countryFilter.appendChild(opt);
+            });
+
+            cats.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.innerText = state.categoriesMap[c] || c.toUpperCase();
+                DOM.categoryFilter.appendChild(opt);
+            });
+
+            if (countries.includes(state.userCountry)) {
+                DOM.countryFilter.value = state.userCountry;
+                applyFilters();
+            }
+        }
+
+        function applyFilters() {
+            const query = DOM.search.value.toLowerCase();
+            const country = DOM.countryFilter.value;
+            const category = DOM.categoryFilter.value;
+
+            state.filtered = state.channels.filter(c => {
+                const matchQ = c.name.toLowerCase().includes(query);
+                const matchCountry = country === 'all' || c.country === country;
+                const matchCat = category === 'all' || c.category === category;
+                return matchQ && matchCountry && matchCat;
+            });
+
+            renderChannels();
+        }
+
+        // --- RENDERIZADO UX ---
+        function renderChannels() {
+            DOM.list.innerHTML = '';
+            DOM.count.innerText = `${state.filtered.length} canales`;
+
+            const limit = Math.min(state.filtered.length, 200);
+
+            for (let i = 0; i < limit; i++) {
+                const c = state.filtered[i];
+                const div = document.createElement('div');
+                const catName = state.categoriesMap[c.category] || c.category || 'General';
+                const countryName = state.countriesMap[c.country] || c.country?.toUpperCase() || 'UNK';
+                
+                div.className = `channel-card p-2.5 rounded-xl cursor-pointer flex items-center gap-3.5 animate-fade`;
+                div.style.animationDelay = `${i * 10}ms`;
+                div.onclick = () => {
+                    state.consecutiveErrors = 0; 
+                    playChannel(i);
+                    if(window.innerWidth < 1024) window.scrollTo({top: 0, behavior: 'smooth'});
+                };
+
+                div.innerHTML = `
+                    <div class="w-10 h-10 lg:w-11 lg:h-11 rounded-lg bg-surface border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                        ${c.logo ? `<img src="${c.logo}" class="w-full h-full object-contain" onerror="this.outerHTML='<i data-lucide=\\'tv\\' class=\\'w-5 h-5 text-muted\\'></i>'" loading="lazy">` : `<i data-lucide="tv" class="w-5 h-5 text-muted"></i>`}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-semibold text-[13px] lg:text-sm truncate text-white">${c.name}</h4>
+                        <div class="flex items-center gap-2 mt-1 text-[10px] lg:text-[11px] text-muted font-medium">
+                            <span class="truncate max-w-[90px]">${countryName}</span>
+                            <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                            <span class="truncate">${catName}</span>
+                        </div>
+                    </div>
+                `;
+                DOM.list.appendChild(div);
+            }
+            
+            // Re-renderizar iconos (el fallback del TV)
+            lucide.createIcons({ root: DOM.list });
+        }
+
+        function updateUISelection(index) {
+            const cards = DOM.list.children;
+            for(let i = 0; i < cards.length; i++) {
+                cards[i].classList.remove('active');
+            }
+            if(cards[index]) {
+                cards[index].classList.add('active');
+                if(window.innerWidth >= 1024) {
+                    cards[index].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+        }
+
+        // --- LÓGICA EPG (GUÍA) ---
+        async function loadAndShowEPG(country, channelId, channelName) {
+            const epgContainer = document.getElementById('epg-container');
+            const epgContent = document.getElementById('epg-content');
+            
+            if (!country || country === 'desconocido') {
+                epgContainer.classList.add('hidden');
+                return;
+            }
+
+            epgContainer.classList.remove('hidden');
+            epgContent.innerHTML = '<div class="flex items-center text-muted"><i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> Cargando guía...</div>';
+            lucide.createIcons({ root: epgContainer });
+
+            if (!state.epgCache[country]) {
+                try {
+                    const epgUrl = getProxyUrl('epg', country);
+                    let res = await fetch(epgUrl);
+                    
+                    if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+                    
+                    const buffer = await res.arrayBuffer();
+                    const view = new Uint8Array(buffer);
+                    let text = "";
+
+                    if (view.length > 2 && view[0] === 0x1F && view[1] === 0x8B) {
+                        try {
+                            const ds = new DecompressionStream('gzip');
+                            const stream = new Response(buffer).body.pipeThrough(ds);
+                            text = await new Response(stream).text();
+                        } catch(e) {
+                            text = new TextDecoder().decode(buffer);
+                        }
+                    } else {
+                        text = new TextDecoder().decode(buffer);
+                    }
+
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(text, "text/xml");
+                    
+                    const channels = xmlDoc.getElementsByTagName('channel');
+                    const programmes = xmlDoc.getElementsByTagName('programme');
+                    
+                    const programsMap = {}; 
+                    const nameToIdMap = {}; 
+                    
+                    for(let i=0; i<channels.length; i++) {
+                        const id = channels[i].getAttribute('id');
+                        const displayNameNode = channels[i].getElementsByTagName('display-name')[0];
+                        if(displayNameNode) {
+                            nameToIdMap[displayNameNode.textContent.toLowerCase()] = id;
+                        }
+                    }
+
+                    for(let i=0; i<programmes.length; i++) {
+                        const p = programmes[i];
+                        const channel = p.getAttribute('channel');
+                        const start = parseXMLTVDate(p.getAttribute('start'));
+                        const stop = parseXMLTVDate(p.getAttribute('stop'));
+                        const titleNode = p.getElementsByTagName('title')[0];
+                        const descNode = p.getElementsByTagName('desc')[0];
+                        
+                        if(!programsMap[channel]) programsMap[channel] = [];
+                        
+                        programsMap[channel].push({
+                            start,
+                            stop,
+                            title: titleNode ? titleNode.textContent : 'Programa',
+                            desc: descNode ? descNode.textContent : ''
+                        });
+                    }
+                    
+                    state.epgCache[country] = { programsMap, nameToIdMap };
+
+                } catch (e) {
+                    state.epgCache[country] = "error";
+                }
+            }
+
+            const cache = state.epgCache[country];
+            if (cache === "error") {
+                epgContent.innerHTML = '<span class="text-red-400 text-xs">Guía no disponible temporalmente.</span>';
+                return;
+            }
+
+            let targetId = null;
+            if (cache.programsMap[channelId]) {
+                targetId = channelId;
+            } else if (cache.nameToIdMap[channelName.toLowerCase()]) {
+                targetId = cache.nameToIdMap[channelName.toLowerCase()];
+            } else {
+                for (const [name, id] of Object.entries(cache.nameToIdMap)) {
+                    if (name.includes(channelName.toLowerCase()) || channelName.toLowerCase().includes(name)) {
+                        targetId = id;
+                        break;
+                    }
+                }
+            }
+
+            if (!targetId || !cache.programsMap[targetId]) {
+                epgContent.innerHTML = '<span class="text-muted italic text-xs">Sin información de programación para este canal.</span>';
+                return;
+            }
+
+            const now = new Date();
+            const programs = cache.programsMap[targetId];
+            
+            const currentProgram = programs.find(p => now >= p.start && now < p.stop);
+            const currentIdx = programs.indexOf(currentProgram);
+            const nextProgram = currentIdx !== -1 && currentIdx + 1 < programs.length ? programs[currentIdx + 1] : null;
+
+            if (currentProgram) {
+                // Nuevo diseño de tarjeta de EPG
+                let html = `
+                    <div class="mb-3 p-4 bg-surface border border-white/5 rounded-xl relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1 h-full bg-white"></div>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="bg-white text-black text-[9px] lg:text-[10px] font-bold px-1.5 py-0.5 rounded tracking-widest">AHORA</span>
+                            <span class="text-muted text-[11px] lg:text-xs font-semibold">${formatTime(currentProgram.start)} - ${formatTime(currentProgram.stop)}</span>
+                        </div>
+                        <div class="text-white font-bold text-sm lg:text-base leading-tight">${currentProgram.title}</div>
+                        ${currentProgram.desc ? `<div class="text-[12px] text-muted mt-1.5 line-clamp-2 leading-relaxed">${currentProgram.desc}</div>` : ''}
+                    </div>
+                `;
+                
+                if (nextProgram) {
+                    html += `
+                        <div class="p-3 bg-transparent border border-border rounded-xl flex items-center justify-between">
+                            <div class="min-w-0 pr-4">
+                                <div class="text-white font-medium text-xs lg:text-sm truncate">${nextProgram.title}</div>
+                                <div class="text-muted text-[10px] lg:text-[11px] font-medium mt-0.5 tracking-wider">A CONTINUACIÓN</div>
+                            </div>
+                            <div class="text-muted text-xs font-semibold shrink-0 bg-surface px-2 py-1 rounded-md border border-white/5">
+                                ${formatTime(nextProgram.start)}
+                            </div>
+                        </div>
+                    `;
+                }
+                epgContent.innerHTML = html;
+            } else {
+                epgContent.innerHTML = '<span class="text-muted italic text-xs">No hay programas en emisión reportados.</span>';
+            }
+        }
+
+        function parseXMLTVDate(str) {
+            if (!str) return new Date();
+            const year = str.substring(0,4);
+            const month = str.substring(4,6) - 1;
+            const day = str.substring(6,8);
+            const hour = str.substring(8,10);
+            const min = str.substring(10,12);
+            const sec = str.substring(12,14);
+            const offsetSign = str.substring(15,16) || '+';
+            const offsetHours = str.substring(16,18) || '00';
+            const offsetMins = str.substring(18,20) || '00';
+            
+            let date = new Date(Date.UTC(year, month, day, hour, min, sec));
+            let offsetMs = (parseInt(offsetHours)*60*60*1000) + (parseInt(offsetMins)*60*1000);
+            
+            if (offsetSign === '+') date = new Date(date.getTime() - offsetMs); 
+            else date = new Date(date.getTime() + offsetMs);
+            
+            return date;
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+
+        // --- REPRODUCTOR ---
+        function playChannel(index, autoPlay = true) {
+            if (index < 0 || index >= state.filtered.length) return;
+            
+            clearTimeout(state.skipTimeout);
+            state.currentIndex = index;
+            const channel = state.filtered[index];
+            updateUISelection(index);
+
+            // Actualizar panel de Info
+            document.getElementById('info-title').innerText = channel.name;
+            document.getElementById('info-category').innerText = state.categoriesMap[channel.category] || channel.category || 'General';
+            
+            const countryName = state.countriesMap[channel.country] || channel.country?.toUpperCase() || 'Desconocido';
+            document.getElementById('info-country').innerHTML = `<i data-lucide="globe-2" class="w-3.5 h-3.5"></i> ${countryName}`;
+            lucide.createIcons({ root: document.getElementById('info-country') });
+
+            const streamEndpoint = getProxyUrl('url', channel.url);
+
+            // EPG
+            loadAndShowEPG(channel.country, channel.id, channel.name);
+
+            // Iniciar HLS
+            if (state.hls) {
+                state.hls.destroy();
+                state.hls = null;
+            }
+
+            if (Hls.isSupported()) {
+                state.hls = new Hls({ maxMaxBufferLength: 30 });
+                state.hls.loadSource(streamEndpoint);
+                state.hls.attachMedia(DOM.video);
+                
+                state.hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    if(autoPlay) DOM.video.play().catch(e => console.warn("Autoplay bloqueado:", e));
+                });
+
+                state.hls.on(Hls.Events.FRAG_PLAYING, function() {
+                    state.consecutiveErrors = 0;
+                });
+
+                state.hls.on(Hls.Events.ERROR, function (event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                state.hls.destroy(); 
+                                state.hls = null;
+                                
+                                state.consecutiveErrors++;
+                                if (state.consecutiveErrors > 10) {
+                                    showToast("Múltiples fallos seguidos. Selecciona manualmente.", "error");
+                                    state.consecutiveErrors = 0; 
+                                    return;
+                                }
+
+                                showToast(`${channel.name} no disponible. Saltando...`, "error");
+                                state.skipTimeout = setTimeout(() => playNext(), 2000);
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                state.hls.recoverMediaError();
+                                break;
+                            default:
+                                state.hls.destroy();
+                                state.hls = null;
+                                break;
+                        }
+                    }
+                });
+
+            } else if (DOM.video.canPlayType('application/vnd.apple.mpegurl')) {
+                DOM.video.src = streamEndpoint;
+                if(autoPlay) DOM.video.play();
+                
+                DOM.video.onplaying = () => { state.consecutiveErrors = 0; };
+                DOM.video.onerror = () => {
+                    state.consecutiveErrors++;
+                    if (state.consecutiveErrors > 10) {
+                        showToast("Múltiples fallos seguidos. Selecciona manualmente.", "error");
+                        state.consecutiveErrors = 0;
+                        return;
+                    }
+                    showToast(`${channel.name} no disponible. Saltando...`, "error");
+                    clearTimeout(state.skipTimeout);
+                    state.skipTimeout = setTimeout(() => playNext(), 2000);
+                };
+            }
+        }
+
+        function playNext() {
+            if (state.currentIndex < state.filtered.length - 1) {
+                playChannel(state.currentIndex + 1);
+            } else {
+                showToast("Fin de la lista.", "info");
+            }
+        }
+
+        function playPrevious() {
+            if (state.currentIndex > 0) {
+                playChannel(state.currentIndex - 1);
+            }
+        }
+
+        // --- COMPONENTES UI: TOASTS ---
+        function showToast(message, type = "info") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icon = type === 'error' ? '<i data-lucide="triangle-alert" class="w-4 h-4"></i>' : '<i data-lucide="info" class="w-4 h-4"></i>';
+            toast.innerHTML = `${icon} <span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons({ root: toast });
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- INICIALIZADOR GOOGLE CAST ---
+        window.__onGCastApiAvailable = function(isAvailable) {
+            if (isAvailable) {
+                cast.framework.CastContext.getInstance().setOptions({
+                    receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                    autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+                });
+            }
+        };
+
+        // Boot
+        window.addEventListener('DOMContentLoaded', init);
+
+    </script>
 </body>
 </html>

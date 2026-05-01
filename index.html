@@ -49,6 +49,8 @@
             border-color: rgba(255, 255, 255, 0.2);
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
+
+        select option { background: #18181b; color: #fafafa; }
         
         /* Animaciones */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -141,8 +143,36 @@
                     </div>
                 </div>
 
-                <!-- EPG (Ahora fluirá naturalmente debajo del título sin espacios gigantes) -->
-                <div id="epg-container" class="glass-panel p-5 rounded-xl hidden">
+            </div>
+        </section>
+
+        <!-- Right Side: Channel List -->
+        <section id="channel-list-section" class="w-full lg:w-5/12 xl:w-4/12 flex flex-col lg:h-full bg-background pb-10 lg:pb-0 transition-all duration-300">
+            <!-- Filters -->
+            <div class="p-4 border-b border-border glass-panel shrink-0 z-10 sticky top-0 lg:relative rounded-b-xl">
+                <div class="relative mb-3">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar canal..." class="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-muted transition-colors text-white placeholder-muted">
+                </div>
+                <div class="flex gap-2">
+                    <select id="countryFilter" class="flex-1 bg-zinc-900/95 text-white border border-white/15 rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none truncate cursor-pointer hover:bg-zinc-800 transition-colors shadow-inner">
+                        <option value="all">Todos los países</option>
+                    </select>
+                    <select id="categoryFilter" class="flex-1 bg-zinc-900/95 text-white border border-white/15 rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none focus:ring-2 focus:ring-white/20 appearance-none truncate cursor-pointer hover:bg-zinc-800 transition-colors shadow-inner">
+                        <option value="all">Categorías</option>
+                    </select>
+                </div>
+                <div class="mt-2.5 text-[11px] text-muted text-right font-medium" id="channel-count">0 canales</div>
+            </div>
+
+            <div class="flex-1 flex flex-col gap-3 p-3 lg:overflow-hidden">
+                <!-- List -->
+                <div id="channel-list" class="h-[42vh] lg:h-[52%] lg:min-h-[260px] lg:max-h-[52%] lg:overflow-y-auto p-2.5 space-y-1 custom-scrollbar glass-panel rounded-xl border border-white/5">
+                    <!-- Channels injected here -->
+                </div>
+
+                <!-- EPG -->
+                <div id="epg-container" class="glass-panel p-4 rounded-xl hidden flex-1 min-h-[180px] overflow-y-auto border border-white/5">
                     <h3 class="text-xs lg:text-sm font-semibold text-white mb-4 flex items-center gap-2">
                         <i data-lucide="list-video" class="w-4 h-4 lg:w-5 lg:h-5"></i> Guía de Programación
                     </h3>
@@ -150,31 +180,6 @@
                         <!-- Inyectado dinámicamente -->
                     </div>
                 </div>
-            </div>
-        </section>
-
-        <!-- Right Side: Channel List -->
-        <section id="channel-list-section" class="w-full lg:w-5/12 xl:w-4/12 flex flex-col lg:h-full bg-background pb-10 lg:pb-0 transition-all duration-300">
-            <!-- Filters -->
-            <div class="p-4 border-b border-border glass-panel shrink-0 z-10 sticky top-0 lg:relative">
-                <div class="relative mb-3">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted"></i>
-                    <input type="text" id="searchInput" placeholder="Buscar canal..." class="w-full bg-surface border border-border rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-muted transition-colors text-white placeholder-muted">
-                </div>
-                <div class="flex gap-2">
-                    <select id="countryFilter" class="flex-1 bg-surface border border-border rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none appearance-none truncate cursor-pointer hover:bg-white/5 transition-colors">
-                        <option value="all">Todos los países</option>
-                    </select>
-                    <select id="categoryFilter" class="flex-1 bg-surface border border-border rounded-lg px-2 py-2 lg:px-3 text-xs lg:text-sm focus:outline-none appearance-none truncate cursor-pointer hover:bg-white/5 transition-colors">
-                        <option value="all">Categorías</option>
-                    </select>
-                </div>
-                <div class="mt-2.5 text-[11px] text-muted text-right font-medium" id="channel-count">0 canales</div>
-            </div>
-
-            <!-- List -->
-            <div id="channel-list" class="flex-1 lg:overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                <!-- Channels injected here -->
             </div>
         </section>
     </main>

@@ -1,0 +1,17 @@
+{
+  "name": "Mau TV",
+  "short_name": "Mau TV",
+  "description": "Reproductor IPTV web con guía y filtros.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

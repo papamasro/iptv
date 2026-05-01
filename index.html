@@ -655,29 +655,6 @@
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
-
-        // --- CUSTOM PROXY LOADER PARA ARREGLAR RUTAS RELATIVAS (.ts) ---
-        class ProxyLoader extends Hls.DefaultConfig.loader {
-            constructor(config) {
-                super(config);
-            }
-            load(context, config, callbacks) {
-                const originalUrl = context.url;
-                
-                context.url = getProxyUrl('url', originalUrl);
-                
-                const onSuccess = callbacks.onSuccess;
-                callbacks.onSuccess = (response, stats, ctx, networkDetails) => {
-                    response.url = originalUrl;
-                    if (onSuccess) {
-                        onSuccess(response, stats, ctx, networkDetails);
-                    }
-                };
-                
-                super.load(context, config, callbacks);
-            }
-        }
-
         // --- REPRODUCTOR ---
         function playChannel(index, autoPlay = true) {
             if (index < 0 || index >= state.filtered.length) return;
@@ -713,11 +690,12 @@
 
             if (Hls.isSupported()) {
                 state.hls = new Hls({ 
-                    maxMaxBufferLength: 30,
-                    loader: ProxyLoader // Inyectamos la magia
+                    maxMaxBufferLength: 30
                 });
                 
-                state.hls.loadSource(channel.url);
+                // ✅ FIX: el manifest pasa por el worker, que reescribe todas las URLs
+                // internas (segmentos, sub-playlists, keys) → ya no hace falta ProxyLoader
+                state.hls.loadSource(getProxyUrl('url', channel.url));
                 state.hls.attachMedia(DOM.video);
                 
                 state.hls.on(Hls.Events.MANIFEST_PARSED, function() {
